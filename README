@@ -1,0 +1,4 @@
+This project will eventually become a way for me to back up my Livejournal.
+
+I plan to have it download entries into individual JSON files, which can
+then be rendered into (eg) HTML using either this tool or another.
