@@ -11,6 +11,33 @@ import xmlrpclib
 
 log = logging.getLogger(__name__)
 
+def json_serialise(obj):
+    """Function for json.dump to allow it to serialise non-obvious types."""
+    if isinstance(obj, datetime.datetime):
+        return {
+            '__type__': 'datetime.datetime',
+            'year': obj.year,
+            'month': obj.month,
+            'day': obj.day,
+            'hour': obj.hour,
+            'minute': obj.minute,
+            'second': obj.second,
+            'microsecond': obj.microsecond}
+    raise TypeError
+
+def json_unserialise(d):
+    type_ = d.get('__type__')
+    if type_ == 'datetime.datetime':
+        return datetime.datetime(
+            year = d['year'],
+            month = d['month'],
+            day = d['day'],
+            hour = d['hour'],
+            minute = d['minute'],
+            second = d['second'],
+            microsecond = d['microsecond'])
+    return d
+
 class LJBackup(object):
     clientversion = 'Python/FlexoLJBackup/0.0.1'
     timeformat = '%Y-%m-%d %H:%M:%S'
@@ -56,7 +83,7 @@ class LJBackup(object):
 
     def _write(self, data, *path):
         """Write out Python data (as JSON) to the path given."""
-        strdata = json.dumps(data)
+        strdata = json.dumps(data, default=json_serialise)
         filepath = os.path.join(*((self.dumpdir, self.username) + path))
         log.debug('Writing to %s', filepath)
         filedir = os.path.dirname(filepath)
@@ -90,7 +117,7 @@ class LJBackup(object):
         if not os.path.exists(filepath):
             return default
         with open(filepath, 'rb') as f:
-            return json.load(f, allow_none=True)
+            return json.load(f, object_hook=json_unserialise)
 
     def __call__(self):
         """Main synchronisation routine. Write out all new or updated files."""
@@ -102,7 +129,7 @@ class LJBackup(object):
                 raise
         self._write(self.user, 'user.json')
         
-        lastsync = self._read('lastsync.json', default={'lastsync': None})['lastsync']
+        lastsync = self._read('lastsync.json', default={}).get('lastsync', None)
 
         # Ref: http://www.livejournal.com/doc/server/ljp.csp.entry_downloading.html
         log.info("Fetching list of entries to sync")
@@ -131,20 +158,29 @@ class LJBackup(object):
             log.debug("count: %r, total: %r", count, total)
 
         log.info('Syncing %d item%s', len(items), len(items) != 1 and 's' or '')
-        while items:
-            oldest = sorted(items.values(), key=operator.itemgetter('time'))[0]
-            log.debug('oldest item is %r', oldest)
-            lastsync = oldest['time'] - datetime.timedelta(seconds=1)
-            events = self.lj.getevents(self._request(
-                selecttype='syncitems',
-                lastsync=lastsync.strftime(self.timeformat),
-                lineendings='unix',
-            ))
-            for event in events['events']:
-                print "event:", repr(event)
-            break # DEBUG            
-            remaining = [i for i in items.values() if i['downloaded'] == 0]
-        # TODO - try/finally and write out last sync item
+        try:
+            while items:
+                oldest = sorted(items.values(), key=operator.itemgetter('time'))[0]
+                log.debug('oldest item is %r', oldest)
+                lastsync = oldest['time'] - datetime.timedelta(seconds=1)
+                events = self.lj.getevents(self._request(
+                    selecttype='syncitems',
+                    lastsync=lastsync.strftime(self.timeformat),
+                    lineendings='unix',
+                ))
+                for event in events['events']:
+                    print "event:", repr(event)
+                break # DEBUG            
+                remaining = [i for i in items.values() if i['downloaded'] == 0]
+        except KeyboardInterrupt:
+            log.info('Received ^C; quitting.')
+        except:
+            log.error('Something\'s gone wrong. Please file a bug.')
+            raise
+        finally:
+            # write out last sync item
+            log.debug('Writing out final sync time %s', lastsync)
+            self._write({'lastsync': lastsync}, 'lastsync.json')
 
 if __name__ == '__main__':
     log.setLevel(logging.DEBUG)
