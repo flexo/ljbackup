@@ -169,7 +169,7 @@ class LJBackup(object):
                     lineendings='unix',
                 ))
                 for event in events['events']:
-                    print "event:", repr(event)
+                    self._process_entry(event)
                 break # DEBUG            
                 remaining = [i for i in items.values() if i['downloaded'] == 0]
         except KeyboardInterrupt:
@@ -181,6 +181,23 @@ class LJBackup(object):
             # write out last sync item
             log.debug('Writing out final sync time %s', lastsync)
             self._write({'lastsync': lastsync}, 'lastsync.json')
+
+    def _process_entry(self, entry):
+        """Process a single entry returned as part of a syncitems call."""
+        # entry looks something along the lines of:
+        # {'itemid': 3, 'eventtime': '2003-03-23 14:55:00', 'url': 'http://user.livejournal.com/825392.html', 'ditemid': 920, 'event_timestamp': 1048431300, 'reply_count': 1, 'logtime': '2003-03-23 06:55:33', 'props': {'current_moodid': 3, 'personifi_tags': 'nterms:no', 'commentalter': 1055945724}, 'can_comment': 1, 'anum': 152, 'event': "[main journal text, exactly as entered (eg newlines rather than <br />s", 'subject': '[subject line]'}
+        # eventtime is "The time the user posted (or said they posted, rather,
+        # since users can back-date posts)".
+        # logtime isn't documented but judging from the fact the post I
+        # copied above was UTC, it's LJ's server time (UTC-0500 - USA Eastern,
+        # it seems)
+        date = datetime.datetime.strptime(entry['eventtime'], self.timeformat)
+        path = [
+            "%04d" % date.year,
+            "%02d" % date.month,
+            "%02d" % date.day,
+            date.strftime('%Y-%m-%d-%H-%M-%S.json')]
+        self._write(event, *path)
 
 if __name__ == '__main__':
     log.setLevel(logging.DEBUG)
