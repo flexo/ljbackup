@@ -23,7 +23,11 @@ def json_serialise(obj):
             'minute': obj.minute,
             'second': obj.second,
             'microsecond': obj.microsecond}
-    raise TypeError
+    elif isinstance(obj, xmlrpclib.Binary):
+        return {
+            '__type__': 'xmlrpclib.Binary',
+            'data': obj.data}
+    raise TypeError("Can't serialise %r (type %s)" % (obj, type(obj)))
 
 def json_unserialise(d):
     type_ = d.get('__type__')
@@ -36,6 +40,10 @@ def json_unserialise(d):
             minute = d['minute'],
             second = d['second'],
             microsecond = d['microsecond'])
+    elif type_ == 'xmlrpclib.Binary':
+        b = xmlrpclib.Binary()
+        b.data = d['data']
+        return b
     return d
 
 class LJBackup(object):
@@ -197,7 +205,7 @@ class LJBackup(object):
             "%02d" % date.month,
             "%02d" % date.day,
             date.strftime('%Y-%m-%d-%H-%M-%S.json')]
-        self._write(event, *path)
+        self._write(entry, *path)
 
 if __name__ == '__main__':
     log.setLevel(logging.DEBUG)
