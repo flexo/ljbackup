@@ -49,7 +49,14 @@ def json_unserialise(d):
     return d
 
 class LJBackup(object):
-    clientversion = 'Python/FlexoLJBackup/0.0.1'
+    clientname = 'FlexoLJBackup/0.0.1'
+    # client name + version for XMLRPC requests:
+    clientversion = 'Python/' + clientname
+    # user agent for XML requests, see
+    # www.livejournal.com/doc/server/ljp.int.xml_userdata.rate_limits.html:
+    useragent = clientname + ' (https://github.com/flexo/ljbackup; <ljbackup' \
+        + '@nivan.net>; en-GB)' # the line break deliberately separates my addy
+    # response and request expected date format:
     timeformat = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self, username, password, server='http://www.livejournal.com/interface/xmlrpc', dumpdir='ljbackup'):
