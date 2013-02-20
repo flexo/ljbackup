@@ -207,7 +207,6 @@ class LJBackup(object):
         path = [
             "%04d" % date.year,
             "%02d" % date.month,
-            "%02d" % date.day,
             date.strftime('%Y-%m-%d-%H-%M-%S.json')]
         self._write(entry, *path)
         # TODO - comments
