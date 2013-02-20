@@ -2,11 +2,13 @@ import os
 import sys
 import time
 import json
+import base64
 import logging
 import getpass
 import hashlib
 import operator
 import datetime
+import traceback
 import xmlrpclib
 
 log = logging.getLogger(__name__)
@@ -26,7 +28,7 @@ def json_serialise(obj):
     elif isinstance(obj, xmlrpclib.Binary):
         return {
             '__type__': 'xmlrpclib.Binary',
-            'data': obj.data}
+            'data': base64.b64encode(obj.data)}
     raise TypeError("Can't serialise %r (type %s)" % (obj, type(obj)))
 
 def json_unserialise(d):
@@ -42,7 +44,7 @@ def json_unserialise(d):
             microsecond = d['microsecond'])
     elif type_ == 'xmlrpclib.Binary':
         b = xmlrpclib.Binary()
-        b.data = d['data']
+        b.data = base64.b64decode(d['data'])
         return b
     return d
 
@@ -184,6 +186,7 @@ class LJBackup(object):
             log.info('Received ^C; quitting.')
         except:
             log.error('Something\'s gone wrong. Please file a bug.')
+            print >> sys.stderr, traceback.format_exc()
             raise
         finally:
             # write out last sync item
@@ -206,6 +209,7 @@ class LJBackup(object):
             "%02d" % date.day,
             date.strftime('%Y-%m-%d-%H-%M-%S.json')]
         self._write(entry, *path)
+        # TODO - comments
 
 if __name__ == '__main__':
     log.setLevel(logging.DEBUG)
