@@ -164,7 +164,7 @@ class LJBackup(object):
                     lastsync = item['time']
                 else:
                     lastsync = max(item['time'], lastsync)
-                items[item['item']] = item
+                items[int(item['item'].replace('L-', ''))] = item
             log.debug("count: %r, total: %r", count, total)
 
         log.info('Syncing %d item%s', len(items), len(items) != 1 and 's' or '')
@@ -180,8 +180,9 @@ class LJBackup(object):
                 ))
                 for event in events['events']:
                     self._process_entry(event)
-                break # DEBUG            
-                remaining = [i for i in items.values() if i['downloaded'] == 0]
+                    items[event['itemid']]['downloaded'] = True
+                # keep only undownloaded items:
+                items = [i for i in items.values() if i['downloaded'] == 0]
         except KeyboardInterrupt:
             log.info('Received ^C; quitting.')
         except:
