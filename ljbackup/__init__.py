@@ -11,6 +11,8 @@ import datetime
 import traceback
 import xmlrpclib
 
+from release import version
+
 log = logging.getLogger(__name__)
 
 def json_serialise(obj):
@@ -49,7 +51,7 @@ def json_unserialise(d):
     return d
 
 class LJBackup(object):
-    clientname = 'FlexoLJBackup/0.0.1'
+    clientname = 'FlexoLJBackup/' + version
     # client name + version for XMLRPC requests:
     clientversion = 'Python/' + clientname
     # user agent for XML requests, see
@@ -218,7 +220,7 @@ class LJBackup(object):
         self._write(entry, *path)
         # TODO - comments
 
-if __name__ == '__main__':
+def main():
     log.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
@@ -233,3 +235,5 @@ if __name__ == '__main__':
     ljbackup()
     log.info('Done')
 
+if __name__ == '__main__':
+    sys.exit(main())

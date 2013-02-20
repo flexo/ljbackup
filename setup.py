@@ -12,4 +12,5 @@ setup(
     author_email='ljbackup' + '@nivan.net',
     url='https://github.com/flexo/ljbackup',
     packages=['ljbackup'],
+    scripts=['lj-backup'],
 )
