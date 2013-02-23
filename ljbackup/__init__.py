@@ -191,7 +191,7 @@ class LJBackup(object):
                     self._process_entry(event)
                     items[event['itemid']]['downloaded'] = True
                 # keep only undownloaded items:
-                items = [i for i in items.values() if i['downloaded'] == 0]
+                items = {k: v for k, v in items.items() if v['downloaded'] == 0}
         except KeyboardInterrupt:
             log.info('Received ^C; quitting.')
         except:
