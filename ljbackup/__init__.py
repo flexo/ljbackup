@@ -69,6 +69,12 @@ class LJBackup(object):
         self.challenge = None
         self.challenge_response = None
         self.time_offset = 0
+        # Older clients had no unicode support, so old entries can't be
+        # retrieved with version 1 in case they contain invalid characters.
+        # However, entries posted by clients using version 1 can't be
+        # retrieved by version 0. This variable stops up having to need to
+        # go by trial and error each entry (which LJ wouldn't like either).
+        self.protocolversion = 1
 
     def _auth(self):
         """Re-authenticate for the next request."""
@@ -99,6 +105,27 @@ class LJBackup(object):
             clientversion=self.clientversion,
         ))
         return resp
+
+    def _getevents(self, **kw):
+        """Wrapper for lj.getevents that handles protocol failures."""
+        req = self._request(**kw)
+        try:
+            return self.lj.getevents(self._request(**kw))
+        except xmlrpclib.Fault, e:
+            log.debug("Got a fault for getevents: %d %s",
+                e.faultCode, e.faultString)
+            if self.protocolversion == 0 and e.faultCode == 207:
+                log.info("Switching to protocol 1")
+                self.protocolversion = 1
+                return self.lj.getevents(self._request(**kw))
+            elif self.protocolversion == 1 and e.faultCode == 207:
+                log.info("Switching to protocol 0")
+                self.protocolversion = 0
+                return self.lj.getevents(self._request(**kw))
+
+            if e.faultCode == 406:
+                log.error("Hit Livejournal rate limits. Try again later.")
+            raise
 
     def _write(self, data, *path):
         """Write out Python data (as JSON) to the path given."""
@@ -182,11 +209,11 @@ class LJBackup(object):
                 oldest = sorted(items.values(), key=operator.itemgetter('time'))[0]
                 log.debug('oldest item is %r', oldest)
                 lastsync = oldest['time'] - datetime.timedelta(seconds=1)
-                events = self.lj.getevents(self._request(
+                events = self._getevents(
                     selecttype='syncitems',
                     lastsync=lastsync.strftime(self.timeformat),
                     lineendings='unix',
-                ))
+                )
                 for event in events['events']:
                     self._process_entry(event)
                     items[event['itemid']]['downloaded'] = True
