@@ -61,10 +61,11 @@ class LJBackup(object):
     # response and request expected date format:
     timeformat = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, username, password, server='http://www.livejournal.com/interface/xmlrpc', dumpdir='ljbackup'):
+    def __init__(self, username, password, server='http://www.livejournal.com/interface/xmlrpc', dumpdir='ljbackup', verbose=True):
         self.username = username
         self.password = password
-        self.lj = xmlrpclib.ServerProxy(server, allow_none=True).LJ.XMLRPC
+        self.lj = xmlrpclib.ServerProxy(
+            server, allow_none=True, verbose=verbose).LJ.XMLRPC
         self.dumpdir = os.path.abspath(dumpdir)
         self.challenge = None
         self.challenge_response = None
@@ -74,7 +75,7 @@ class LJBackup(object):
         # However, entries posted by clients using version 1 can't be
         # retrieved by version 0. This variable stops up having to need to
         # go by trial and error each entry (which LJ wouldn't like either).
-        self.protocolversion = 1
+        self.protocolversion = 0
 
     def _auth(self):
         """Re-authenticate for the next request."""
@@ -95,7 +96,7 @@ class LJBackup(object):
             auth_method='challenge',
             auth_challenge=self.challenge,
             auth_response=self.challenge_response,
-            ver=0) # version 1 enforces unicode, but complains if the entry is screwed up.
+            ver=self.protocolversion) # version 1 enforces unicode, but complains if the entry is older than version 1
         d.update(kw)
         return d
 
@@ -114,14 +115,19 @@ class LJBackup(object):
         except xmlrpclib.Fault, e:
             log.debug("Got a fault for getevents: %d %s",
                 e.faultCode, e.faultString)
+            if e.faultCode == 208:
+                log.error('You need to set your account-wide encoding for '
+                    'LJ API version %d requests to work. Go to '
+                    'http://www.livejournal.com/settings/?c=OldEncoding',
+                    self.protocolversion)
+                raise
             if self.protocolversion == 0 and e.faultCode == 207:
                 log.info("Switching to protocol 1")
                 self.protocolversion = 1
-                return self.lj.getevents(self._request(**kw))
             elif self.protocolversion == 1 and e.faultCode == 207:
                 log.info("Switching to protocol 0")
-                self.protocolversion = 0
-                return self.lj.getevents(self._request(**kw))
+            kw['ver'] = self.protocolversion
+            return self._getevents(**kw)
 
             if e.faultCode == 406:
                 log.error("Hit Livejournal rate limits. Try again later.")
@@ -251,13 +257,13 @@ def main():
     log.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(message)s')
+    formatter = logging.Formatter('\033[1m%(message)s\033[0m')
     ch.setFormatter(formatter)
     log.addHandler(ch)
 
-    username = sys.argv[1]
+    username = sys.argv[1] # TODO proper parsing
     password = getpass.getpass('Livejournal password: ')
-    ljbackup = LJBackup(username, password)
+    ljbackup = LJBackup(username, password, verbose=False)
     log.info('Commencing Backup of user %s to %s', username, ljbackup.dumpdir)
     ljbackup()
     log.info('Done')
