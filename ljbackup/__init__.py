@@ -254,6 +254,14 @@ class LJBackup(object):
         # TODO - comments
 
 def main():
+    try:
+        return _main()
+    except (KeyboardInterrupt, SystemExit):
+        import signal
+        print '^C'
+        return 128 + signal.SIGINT
+
+def _main():
     import argparse
 
     log.setLevel(logging.DEBUG)
