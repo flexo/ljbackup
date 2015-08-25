@@ -254,17 +254,32 @@ class LJBackup(object):
         # TODO - comments
 
 def main():
+    import argparse
+
     log.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(logging.WARNING)
     formatter = logging.Formatter('\033[1m%(message)s\033[0m')
     ch.setFormatter(formatter)
     log.addHandler(ch)
 
-    username = sys.argv[1] # TODO proper parsing
+    parser = argparse.ArgumentParser()
+    parser.add_argument("username", help="your Livejournal username")
+    parser.add_argument("-v", "--verbose", action="count",
+        help="output verbosity. Specify once for info output, "
+             "twice for debugging output, "
+             "thrice for XMLRPC calls.")
+    args = parser.parse_args()
+
+    if args.verbose == 1:
+        ch.setLevel(logging.INFO)
+    elif args.verbose >= 2:
+        ch.setLevel(logging.DEBUG)
+
     password = getpass.getpass('Livejournal password: ')
-    ljbackup = LJBackup(username, password, verbose=False)
-    log.info('Commencing Backup of user %s to %s', username, ljbackup.dumpdir)
+    ljbackup = LJBackup(args.username, password, verbose=(args.verbose > 2))
+    log.info("Commencing Backup of user %s to %s",
+        args.username, ljbackup.dumpdir)
     ljbackup()
     log.info('Done')
 
