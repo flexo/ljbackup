@@ -214,10 +214,10 @@ class LJBackup(object):
             while items:
                 oldest = sorted(items.values(), key=operator.itemgetter('time'))[0]
                 log.debug('oldest item is %r', oldest)
-                lastsync = oldest['time'] - datetime.timedelta(seconds=1)
+                req_lastsync = oldest['time'] - datetime.timedelta(seconds=1)
                 events = self._getevents(
                     selecttype='syncitems',
-                    lastsync=lastsync.strftime(self.timeformat),
+                    lastsync=req_lastsync.strftime(self.timeformat),
                     lineendings='unix',
                 )
                 for event in events['events']:
